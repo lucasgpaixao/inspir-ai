@@ -222,16 +222,17 @@ export const CanvasPost: React.FC<CanvasPostProps> = ({
   const dimensionLabel = isStory ? '1080×1920px (Story)' : '1080×1080px (Feed)';
 
   return (
-    <div className="flex flex-col items-center justify-center space-y-2 w-full">
+    <div className="flex flex-col items-center justify-center gap-2 w-full max-w-full">
       <div
-        className={`relative overflow-hidden rounded-lg border shadow-xl bg-neutral-900 w-full ${
-          isStory ? 'aspect-[9/16] max-w-[280px]' : 'aspect-square max-w-[400px]'
+        className={`relative shrink-0 overflow-hidden border-2 border-[var(--inspir-ink,#14110f)] bg-[var(--inspir-ink,#14110f)] mx-auto ${
+          isStory
+            ? 'aspect-[9/16] h-[min(52vh,420px)] w-auto max-w-full'
+            : 'aspect-square w-full max-w-[min(100%,320px)]'
         }`}
       >
         <canvas
           ref={canvasRef}
-          className="w-full h-full object-cover block"
-          style={{ maxWidth: '100%', height: 'auto' }}
+          className="absolute inset-0 h-full w-full object-contain"
         />
         {!imageLoaded && !error && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -247,8 +248,8 @@ export const CanvasPost: React.FC<CanvasPostProps> = ({
           </div>
         )}
       </div>
-      <p className="text-[10px] text-neutral-500 italic text-center">
-        * Arte em alta resolução ({dimensionLabel}) pronta para baixar.
+      <p className="text-[10px] text-[var(--inspir-muted,#7a7266)] text-center max-w-[280px]">
+        Exportação em alta resolução ({dimensionLabel})
       </p>
     </div>
   );

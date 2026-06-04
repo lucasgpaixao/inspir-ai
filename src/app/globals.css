@@ -128,3 +128,201 @@
     @apply font-sans;
   }
 }
+
+/* InspirAI — editorial atelier */
+:root {
+  --inspir-paper: #ede6d8;
+  --inspir-paper-deep: #e2d9c8;
+  --inspir-ink: #12100e;
+  --inspir-ink-soft: #3d3830;
+  --inspir-muted: #7a7266;
+  --inspir-line: #c9bfb0;
+  --inspir-terracotta: #b8432a;
+  --inspir-terracotta-hover: #9a3623;
+  --inspir-sage: #3f5a47;
+  --inspir-sage-soft: #e8efe9;
+  --inspir-gold: #9a7b4f;
+  --inspir-cream: #faf7f2;
+  --inspir-shadow: 0 24px 60px -12px rgba(18, 16, 14, 0.18);
+  --inspir-shadow-sm: 0 8px 24px -8px rgba(18, 16, 14, 0.12);
+}
+
+@keyframes inspir-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes inspir-grain {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-2%, -1%);
+  }
+}
+
+@keyframes inspir-line-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.inspir-app {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  color: var(--inspir-ink);
+  background-color: var(--inspir-paper);
+  background-image:
+    radial-gradient(
+      ellipse 120% 80% at 100% 0%,
+      rgba(184, 67, 42, 0.07) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 90% 60% at 0% 100%,
+      rgba(63, 90, 71, 0.08) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      165deg,
+      var(--inspir-cream) 0%,
+      var(--inspir-paper) 45%,
+      var(--inspir-paper-deep) 100%
+    );
+}
+
+.inspir-grain::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: -50%;
+  z-index: 0;
+  isolation: isolate;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  animation: inspir-grain 12s ease-in-out infinite;
+}
+
+.inspir-display {
+  font-family: var(--font-display), Georgia, serif;
+  font-variation-settings: "SOFT" 50, "WONK" 1;
+}
+
+.inspir-mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.65rem;
+}
+
+.inspir-rise {
+  animation: inspir-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.inspir-card {
+  background: var(--inspir-cream);
+  border: 2px solid var(--inspir-ink);
+  box-shadow: var(--inspir-shadow-sm);
+}
+
+.inspir-card-inset {
+  background: var(--inspir-paper);
+  border: 1px solid var(--inspir-line);
+}
+
+.inspir-btn-primary {
+  background: var(--inspir-terracotta);
+  color: var(--inspir-cream);
+  border: 2px solid var(--inspir-ink);
+  box-shadow: 3px 3px 0 var(--inspir-ink);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.inspir-btn-primary:hover:not(:disabled) {
+  background: var(--inspir-terracotta-hover);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--inspir-ink);
+}
+
+.inspir-btn-primary:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--inspir-ink);
+}
+
+.inspir-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.inspir-btn-ghost {
+  background: transparent;
+  color: var(--inspir-ink);
+  border: 2px solid var(--inspir-ink);
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.inspir-btn-ghost:hover {
+  background: var(--inspir-paper-deep);
+}
+
+.inspir-tab-active {
+  background: var(--inspir-ink);
+  color: var(--inspir-cream);
+}
+
+.inspir-day-today {
+  outline: 2px solid var(--inspir-terracotta);
+  outline-offset: -2px;
+  background: rgba(184, 67, 42, 0.08);
+}
+
+.inspir-modal-backdrop {
+  background: rgba(18, 16, 14, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.inspir-input {
+  background: var(--inspir-cream);
+  border: 2px solid var(--inspir-ink);
+  color: var(--inspir-ink);
+}
+
+.inspir-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(184, 67, 42, 0.25);
+}
+
+.inspir-chip-active {
+  background: var(--inspir-ink);
+  color: var(--inspir-cream);
+  border-color: var(--inspir-ink);
+}
+
+.inspir-underline {
+  transform-origin: left;
+  animation: inspir-line-draw 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+}
+
+.inspir-sidebar-line {
+  background: linear-gradient(
+    180deg,
+    transparent,
+    var(--inspir-line) 15%,
+    var(--inspir-line) 85%,
+    transparent
+  );
+}

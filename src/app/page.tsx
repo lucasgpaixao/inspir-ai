@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -87,6 +86,15 @@ export default function Home() {
     localStorage.setItem('inspirai_style', stylePreset);
     localStorage.setItem('inspirai_password', adminPassword);
   }, [niche, stylePreset, adminPassword]);
+
+  useEffect(() => {
+    if (!selectedDateStr) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [selectedDateStr]);
 
   const checkSupabaseConnection = async () => {
     try {
@@ -538,301 +546,393 @@ export default function Home() {
   const selectedPostHasCustom =
     selectedPost != null && hasCustomBackground(selectedPost);
 
+  const publishedCount = Object.values(posts).filter(
+    (p) => p.status === 'published'
+  ).length;
+  const totalPosts = Object.keys(posts).length;
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans">
-      <Toaster position="top-right" theme="dark" />
+    <div className="inspir-app inspir-grain min-h-screen flex relative">
+      <Toaster position="top-right" theme="light" richColors />
 
-      {/* Header Premium */}
-      <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-md sticky top-0 z-40 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 p-2 rounded-xl text-white shadow-lg">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
-                InspirAI
-              </h1>
-              <p className="text-xs text-zinc-400">Calendário Inteligente de Conteúdo para Instagram</p>
-            </div>
-          </div>
-
-          {/* Status de Integração */}
-          <div className="flex items-center gap-3 text-xs">
-            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border ${
-              isSupabaseConnected 
-                ? 'bg-emerald-950/30 border-emerald-800/50 text-emerald-400' 
-                : 'bg-amber-950/30 border-amber-800/50 text-amber-400'
-            }`}>
-              <Database className="w-3.5 h-3.5" />
-              <span>{isSupabaseConnected ? 'Supabase Conectado' : 'Modo Demo (Local)'}</span>
-            </div>
-
-            <div className="flex bg-zinc-800 p-0.5 rounded-lg border border-zinc-700">
-              <button
-                onClick={() => setActiveTab('calendar')}
-                className={`px-3 py-1 rounded-md transition-all ${
-                  activeTab === 'calendar' ? 'bg-zinc-700 text-white font-medium' : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                Calendário
-              </button>
-              <button
-                onClick={() => setActiveTab('settings')}
-                className={`px-3 py-1 rounded-md transition-all ${
-                  activeTab === 'settings' ? 'bg-zinc-700 text-white font-medium' : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                Configurações
-              </button>
-            </div>
-          </div>
+      {/* Barra lateral editorial */}
+      <aside className="relative z-20 hidden lg:flex w-[220px] shrink-0 flex-col border-r-2 border-[var(--inspir-ink)] bg-[var(--inspir-cream)] inspir-rise">
+        <div className="p-6 pb-4">
+          <p className="inspir-mono text-[var(--inspir-muted)] mb-3">Ateliê digital</p>
+          <h1 className="inspir-display text-4xl leading-[0.95] tracking-tight text-[var(--inspir-ink)]">
+            Inspir
+            <span className="text-[var(--inspir-terracotta)]">AI</span>
+          </h1>
+          <div className="h-0.5 w-full bg-[var(--inspir-terracotta)] mt-4 inspir-underline" />
+          <p className="mt-4 text-sm leading-relaxed text-[var(--inspir-ink-soft)]">
+            Planeje frases e visuais para o Instagram, dia a dia.
+          </p>
         </div>
-      </header>
+
+        <nav className="flex flex-col gap-1 px-4 flex-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('calendar')}
+            className={`text-left px-4 py-3 text-sm font-semibold border-2 transition-all ${
+              activeTab === 'calendar'
+                ? 'inspir-tab-active border-[var(--inspir-ink)]'
+                : 'border-transparent text-[var(--inspir-muted)] hover:border-[var(--inspir-line)] hover:text-[var(--inspir-ink)]'
+            }`}
+          >
+            Calendário
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('settings')}
+            className={`text-left px-4 py-3 text-sm font-semibold border-2 transition-all ${
+              activeTab === 'settings'
+                ? 'inspir-tab-active border-[var(--inspir-ink)]'
+                : 'border-transparent text-[var(--inspir-muted)] hover:border-[var(--inspir-line)] hover:text-[var(--inspir-ink)]'
+            }`}
+          >
+            Configurações
+          </button>
+        </nav>
+
+        <div className="p-4 mt-auto space-y-3">
+          <div
+            className={`inspir-mono flex items-center gap-2 px-3 py-2 border-2 ${
+              isSupabaseConnected
+                ? 'border-[var(--inspir-sage)] bg-[var(--inspir-sage-soft)] text-[var(--inspir-sage)]'
+                : 'border-[var(--inspir-gold)] bg-[var(--inspir-paper)] text-[var(--inspir-gold)]'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5 shrink-0" />
+            <span>{isSupabaseConnected ? 'Supabase ativo' : 'Modo demonstração'}</span>
+          </div>
+          <p className="text-[10px] text-[var(--inspir-muted)] leading-snug px-1">
+            Junho de inspiração · {currentDate.getFullYear()}
+          </p>
+        </div>
+      </aside>
+
+      {/* Cabeçalho mobile */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 border-b-2 border-[var(--inspir-ink)] bg-[var(--inspir-cream)] px-4 py-3 flex items-center justify-between inspir-rise">
+        <h1 className="inspir-display text-2xl text-[var(--inspir-ink)]">
+          Inspir<span className="text-[var(--inspir-terracotta)]">AI</span>
+        </h1>
+        <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('calendar')}
+            className={`px-2.5 py-1 text-xs font-bold border-2 ${
+              activeTab === 'calendar' ? 'inspir-tab-active' : 'border-[var(--inspir-line)]'
+            }`}
+          >
+            Cal.
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('settings')}
+            className={`px-2.5 py-1 text-xs font-bold border-2 ${
+              activeTab === 'settings' ? 'inspir-tab-active' : 'border-[var(--inspir-line)]'
+            }`}
+          >
+            Config.
+          </button>
+        </div>
+      </div>
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
-        
-        {/* Lado Esquerdo: Calendário ou Configurações */}
-        <div className="lg:col-span-3 space-y-6">
-          {activeTab === 'calendar' ? (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-xl">
-              {/* Controles de Mês */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-2">
-                  <CalendarIcon className="w-5 h-5 text-pink-500" />
-                  <h2 className="text-lg font-semibold capitalize">
-                    {currentDate.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}
-                  </h2>
-                </div>
-                <div className="flex items-center space-x-1 bg-zinc-800 rounded-lg p-1 border border-zinc-700">
-                  <button
-                    onClick={prevMonth}
-                    className="p-1.5 hover:bg-zinc-700 rounded transition-colors text-zinc-300"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={nextMonth}
-                    className="p-1.5 hover:bg-zinc-700 rounded transition-colors text-zinc-300"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Grid do Calendário */}
-              <div className="grid grid-cols-7 gap-2">
-                {/* Dias da Semana */}
-                {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
-                  <div key={day} className="text-center text-xs font-semibold text-zinc-500 py-2">
-                    {day}
+      <main className="relative z-10 flex-1 flex flex-col min-w-0 pt-[52px] lg:pt-0">
+        <div className="flex-1 max-w-[1400px] w-full mx-auto p-4 md:p-8 lg:p-10 grid grid-cols-1 xl:grid-cols-[1fr_280px] gap-6 md:gap-8 inspir-rise" style={{ animationDelay: '0.08s' }}>
+          {/* Área principal: calendário ou configurações */}
+          <div className="min-w-0 space-y-6">
+            {activeTab === 'calendar' ? (
+              <section className="inspir-card p-5 md:p-8">
+                <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
+                  <div>
+                    <p className="inspir-mono text-[var(--inspir-muted)] mb-2">Edição mensal</p>
+                    <h2 className="inspir-display text-3xl md:text-4xl capitalize text-[var(--inspir-ink)]">
+                      {currentDate.toLocaleString('pt-BR', {
+                        month: 'long',
+                        year: 'numeric',
+                      })}
+                    </h2>
                   </div>
-                ))}
-
-                {/* Dias do Mês */}
-                {days.map((day, index) => {
-                  if (!day) {
-                    return <div key={`empty-${index}`} className="aspect-square bg-zinc-950/20 rounded-xl" />;
-                  }
-
-                  const dateStr = formatDateString(day);
-                  const post = posts[dateStr];
-                  const isToday = formatDateString(new Date()) === dateStr;
-
-                  return (
+                  <div className="flex items-center border-2 border-[var(--inspir-ink)] self-start">
                     <button
-                      key={dateStr}
-                      onClick={() => handleDayClick(day)}
-                      className={`group aspect-square relative rounded-xl border p-2 flex flex-col justify-between text-left transition-all overflow-hidden ${
-                        isToday
-                          ? 'border-pink-500 bg-pink-950/10'
-                          : post
-                          ? 'border-zinc-700 bg-zinc-800/40 hover:border-zinc-500'
-                          : 'border-zinc-800 bg-zinc-900/20 hover:border-zinc-700'
-                      }`}
+                      type="button"
+                      onClick={prevMonth}
+                      className="p-2.5 hover:bg-[var(--inspir-paper-deep)] transition-colors"
+                      aria-label="Mês anterior"
                     >
-                      {/* Imagem de Fundo em Miniatura se houver post */}
-                      {post && (
-                        <div className="absolute inset-0 z-0 opacity-20 group-hover:opacity-30 transition-opacity">
-                          <img
-                            src={getActiveBackgroundUrl(post)}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute inset-0 bg-black/40" />
-                        </div>
-                      )}
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <span className="w-px h-8 bg-[var(--inspir-ink)]" />
+                    <button
+                      type="button"
+                      onClick={nextMonth}
+                      className="p-2.5 hover:bg-[var(--inspir-paper-deep)] transition-colors"
+                      aria-label="Próximo mês"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                </header>
 
-                      {post && (
-                        <span className="absolute top-1 right-1 z-20 text-[8px] font-bold uppercase px-1 py-0.5 rounded bg-zinc-950/85 text-zinc-300 border border-zinc-700">
-                          {post.delivery_format === 'story' ? 'Story' : 'Feed'}
-                        </span>
-                      )}
+                <div className="grid grid-cols-7 gap-1.5 md:gap-2">
+                  {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
+                    <div
+                      key={day}
+                      className="inspir-mono text-center py-2 text-[var(--inspir-muted)]"
+                    >
+                      {day}
+                    </div>
+                  ))}
 
-                      <div className="relative z-10 flex items-center justify-between w-full">
-                        <span className={`text-xs font-bold ${isToday ? 'text-pink-400' : 'text-zinc-400'}`}>
-                          {day.getDate()}
-                        </span>
+                  {days.map((day, index) => {
+                    if (!day) {
+                      return (
+                        <div
+                          key={`empty-${index}`}
+                          className="aspect-square border border-dashed border-[var(--inspir-line)]/60 bg-[var(--inspir-paper)]/50"
+                        />
+                      );
+                    }
+
+                    const dateStr = formatDateString(day);
+                    const post = posts[dateStr];
+                    const isToday = formatDateString(new Date()) === dateStr;
+
+                    return (
+                      <button
+                        key={dateStr}
+                        type="button"
+                        onClick={() => handleDayClick(day)}
+                        style={{ animationDelay: `${Math.min(index * 12, 400)}ms` }}
+                        className={`group inspir-rise aspect-square relative border-2 p-2 flex flex-col justify-between text-left transition-all overflow-hidden hover:-translate-y-0.5 hover:shadow-[var(--inspir-shadow-sm)] ${
+                          isToday
+                            ? 'inspir-day-today border-[var(--inspir-terracotta)]'
+                            : post
+                              ? 'border-[var(--inspir-ink)] bg-[var(--inspir-cream)]'
+                              : 'border-[var(--inspir-line)] bg-[var(--inspir-paper)] hover:border-[var(--inspir-ink-soft)]'
+                        }`}
+                      >
                         {post && (
-                          <span className={`w-2 h-2 rounded-full ${
-                            post.status === 'published' ? 'bg-emerald-500' : 'bg-blue-500'
-                          }`} />
+                          <div className="absolute inset-0 z-0 opacity-[0.22] group-hover:opacity-[0.38] transition-opacity duration-300">
+                            <img
+                              src={getActiveBackgroundUrl(post)}
+                              alt=""
+                              className="w-full h-full object-cover grayscale-[20%] group-hover:grayscale-0"
+                            />
+                            <div className="absolute inset-0 bg-[var(--inspir-cream)]/55 mix-blend-multiply" />
+                          </div>
                         )}
-                      </div>
 
-                      <div className="relative z-10 w-full mt-auto">
-                        {post ? (
-                          <p className="text-[10px] text-zinc-300 line-clamp-2 leading-tight font-medium">
-                            {post.quote}
-                          </p>
-                        ) : (
-                          <span className="text-[9px] text-zinc-600 group-hover:text-zinc-400 flex items-center gap-0.5 transition-colors">
-                            <Plus className="w-2.5 h-2.5" /> Criar post
+                        {post && (
+                          <span className="absolute top-1 right-1 z-20 inspir-mono px-1 py-0.5 bg-[var(--inspir-ink)] text-[var(--inspir-cream)]">
+                            {post.delivery_format === 'story' ? 'Story' : 'Feed'}
                           </span>
                         )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6">
-              <div className="flex items-center space-x-2">
-                <SettingsIcon className="w-5 h-5 text-pink-500" />
-                <h2 className="text-lg font-semibold">Configurações de Geração</h2>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-zinc-400">Nicho / Tema Geral</label>
-                  <input
-                    type="text"
-                    value={niche}
-                    onChange={(e) => setNiche(e.target.value)}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-100 focus:outline-none focus:border-pink-500 transition-colors text-sm"
-                    placeholder="Ex: Desenvolvimento Pessoal, Finanças, Fitness..."
-                  />
-                  <p className="text-xs text-zinc-500">
-                    O nicho orienta a inteligência artificial sobre o conteúdo das frases e legendas.
-                  </p>
+                        <div className="relative z-10 flex items-start justify-between w-full">
+                          <span
+                            className={`inspir-display text-lg leading-none ${
+                              isToday
+                                ? 'text-[var(--inspir-terracotta)]'
+                                : 'text-[var(--inspir-ink)]'
+                            }`}
+                          >
+                            {day.getDate()}
+                          </span>
+                          {post && (
+                            <span
+                              className={`w-2 h-2 shrink-0 mt-1 ${
+                                post.status === 'published'
+                                  ? 'bg-[var(--inspir-sage)]'
+                                  : 'bg-[var(--inspir-terracotta)]'
+                              }`}
+                            />
+                          )}
+                        </div>
+
+                        <div className="relative z-10 w-full mt-auto pt-1">
+                          {post ? (
+                            <p className="text-[9px] md:text-[10px] text-[var(--inspir-ink-soft)] line-clamp-2 leading-tight font-medium">
+                              {post.quote}
+                            </p>
+                          ) : (
+                            <span className="text-[9px] text-[var(--inspir-muted)] group-hover:text-[var(--inspir-terracotta)] flex items-center gap-0.5 transition-colors inspir-mono">
+                              <Plus className="w-2.5 h-2.5" /> Novo
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
+              </section>
+            ) : (
+              <section className="inspir-card p-6 md:p-8 space-y-8">
+                <header>
+                  <p className="inspir-mono text-[var(--inspir-muted)] mb-2">Parâmetros da IA</p>
+                  <h2 className="inspir-display text-3xl text-[var(--inspir-ink)] flex items-center gap-3">
+                    <SettingsIcon className="w-7 h-7 text-[var(--inspir-terracotta)]" />
+                    Configurações
+                  </h2>
+                </header>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-zinc-400">Estilo Visual Padrão</label>
-                  <select
-                    value={stylePreset}
-                    onChange={(e) => setStylePreset(e.target.value)}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-100 focus:outline-none focus:border-pink-500 transition-colors text-sm"
-                  >
-                    {Object.values(STYLES_PRESETS).map((preset) => (
-                      <option key={preset.id} value={preset.id}>
-                        {preset.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-zinc-500">
-                    Define as fontes, cores e o estilo artístico do fundo gerado por IA.
-                  </p>
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm font-medium text-zinc-400">Senha Administrativa</label>
-                  <div className="relative">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="inspir-mono text-[var(--inspir-muted)]">
+                      Nicho / tema
+                    </label>
                     <input
-                      type="password"
-                      value={adminPassword}
-                      onChange={(e) => setAdminPassword(e.target.value)}
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-xl pl-10 pr-4 py-2.5 text-zinc-100 focus:outline-none focus:border-pink-500 transition-colors text-sm"
-                      placeholder="Senha para autorizar geração de IA"
+                      type="text"
+                      value={niche}
+                      onChange={(e) => setNiche(e.target.value)}
+                      className="inspir-input w-full px-4 py-3 text-sm"
+                      placeholder="Ex: Desenvolvimento Pessoal..."
                     />
-                    <Lock className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3.5" />
+                    <p className="text-xs text-[var(--inspir-muted)] leading-relaxed">
+                      Orienta frases e legendas geradas pela inteligência artificial.
+                    </p>
                   </div>
-                  <p className="text-xs text-zinc-500">
-                    Necessária para evitar disparos acidentais de geração por IA que consomem créditos de API.
+
+                  <div className="space-y-2">
+                    <label className="inspir-mono text-[var(--inspir-muted)]">
+                      Estilo visual
+                    </label>
+                    <select
+                      value={stylePreset}
+                      onChange={(e) => setStylePreset(e.target.value)}
+                      className="inspir-input w-full px-4 py-3 text-sm appearance-none cursor-pointer"
+                    >
+                      {Object.values(STYLES_PRESETS).map((preset) => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-[var(--inspir-muted)] leading-relaxed">
+                      Fontes, cores e atmosfera do fundo gerado por IA.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="inspir-mono text-[var(--inspir-muted)]">
+                      Senha administrativa
+                    </label>
+                    <div className="relative max-w-md">
+                      <input
+                        type="password"
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        className="inspir-input w-full pl-11 pr-4 py-3 text-sm"
+                        placeholder="Autorizar geração por IA"
+                      />
+                      <Lock className="w-4 h-4 text-[var(--inspir-muted)] absolute left-4 top-3.5" />
+                    </div>
+                    <p className="text-xs text-[var(--inspir-muted)] leading-relaxed">
+                      Evita disparos acidentais que consomem créditos de API.
+                    </p>
+                  </div>
+                </div>
+              </section>
+            )}
+          </div>
+
+          {/* Coluna direita — métricas e guia */}
+          <aside className="space-y-5 xl:sticky xl:top-8 xl:self-start">
+            <div className="inspir-card p-5 space-y-5">
+              <h3 className="inspir-display text-xl text-[var(--inspir-ink)]">
+                Resumo do mês
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="border-2 border-[var(--inspir-ink)] p-4 text-center bg-[var(--inspir-paper)]">
+                  <span className="inspir-mono text-[var(--inspir-muted)]">Posts</span>
+                  <p className="inspir-display text-4xl mt-1 text-[var(--inspir-ink)]">
+                    {totalPosts}
+                  </p>
+                </div>
+                <div className="border-2 border-[var(--inspir-sage)] p-4 text-center bg-[var(--inspir-sage-soft)]">
+                  <span className="inspir-mono text-[var(--inspir-sage)]">Publicados</span>
+                  <p className="inspir-display text-4xl mt-1 text-[var(--inspir-sage)]">
+                    {publishedCount}
                   </p>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Lado Direito: Painel de Controle Rápido */}
-        <div className="space-y-6">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-xl space-y-4">
-            <h3 className="font-semibold text-sm text-zinc-300 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-pink-500" /> Resumo do Mês
-            </h3>
-            <div className="grid grid-cols-2 gap-3 text-center">
-              <div className="bg-zinc-800/50 p-3 rounded-xl border border-zinc-800">
-                <span className="text-xs text-zinc-500">Total de Posts</span>
-                <p className="text-xl font-bold mt-1">{Object.keys(posts).length}</p>
-              </div>
-              <div className="bg-zinc-800/50 p-3 rounded-xl border border-zinc-800">
-                <span className="text-xs text-zinc-500">Publicados</span>
-                <p className="text-xl font-bold mt-1 text-emerald-400">
-                  {Object.values(posts).filter((p) => p.status === 'published').length}
-                </p>
-              </div>
+              <dl className="space-y-3 text-sm border-t-2 border-[var(--inspir-line)] pt-4">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-[var(--inspir-muted)]">Nicho</dt>
+                  <dd className="font-semibold text-right text-[var(--inspir-ink)]">{niche}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-[var(--inspir-muted)]">Estilo</dt>
+                  <dd className="font-semibold text-right text-[var(--inspir-ink)]">
+                    {activePreset.name}
+                  </dd>
+                </div>
+              </dl>
             </div>
 
-            <div className="border-t border-zinc-800 pt-4 space-y-2.5">
-              <div className="flex justify-between text-xs text-zinc-400">
-                <span>Nicho Atual:</span>
-                <span className="font-semibold text-zinc-200">{niche}</span>
-              </div>
-              <div className="flex justify-between text-xs text-zinc-400">
-                <span>Estilo Visual:</span>
-                <span className="font-semibold text-zinc-200">{activePreset.name}</span>
-              </div>
+            <div className="inspir-card-inset p-5 space-y-3 border-2 border-[var(--inspir-line)]">
+              <h3 className="inspir-mono text-[var(--inspir-ink-soft)] flex items-center gap-2">
+                <FileText className="w-3.5 h-3.5" /> Como usar
+              </h3>
+              <ol className="text-xs text-[var(--inspir-ink-soft)] space-y-2.5 list-decimal list-inside leading-relaxed">
+                <li>Toque em um dia para abrir o ateliê do post.</li>
+                <li>Ajuste frase, fonte e legenda em tempo real.</li>
+                <li>Baixe o PNG e copie a legenda para publicar.</li>
+                <li>Defina nicho e estilo na aba de configurações.</li>
+              </ol>
             </div>
-          </div>
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-xl space-y-4">
-            <h3 className="font-semibold text-sm text-zinc-300 flex items-center gap-1.5">
-              <FileText className="w-4 h-4 text-pink-500" /> Instruções de Uso
-            </h3>
-            <ul className="text-xs text-zinc-400 space-y-2 list-disc list-inside">
-              <li>Clique em qualquer dia do calendário para ver ou criar um post.</li>
-              <li>Ajuste o texto, tamanho da fonte e legenda em tempo real.</li>
-              <li>Baixe o post em alta resolução e copie a legenda para postar.</li>
-              <li>Configure o nicho e estilo na aba de configurações.</li>
-            </ul>
-          </div>
+            <div className="hidden xl:block p-4 border-l-4 border-[var(--inspir-terracotta)] bg-[var(--inspir-cream)]/80">
+              <p className="inspir-display text-lg italic text-[var(--inspir-ink-soft)] leading-snug">
+                &ldquo;Um calendário vazio é um convite; um dia preenchido é uma promessa.&rdquo;
+              </p>
+            </div>
+          </aside>
         </div>
       </main>
 
-      {/* Modal Lateral / Detalhes do Post Selecionado */}
+      {/* Ateliê do post — modal (portal visual acima do app) */}
       {selectedDateStr && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
-            
-            {/* Cabeçalho do Modal */}
-            <div className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
+        <div
+          className="inspir-modal-backdrop fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6"
+          onClick={() => setSelectedDateStr(null)}
+          role="presentation"
+        >
+          <div
+            className="inspir-card relative z-[201] w-full sm:max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[min(92vh,880px)] flex flex-col overflow-hidden sm:rounded-none"
+            style={{ boxShadow: 'var(--inspir-shadow)' }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="post-dialog-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="shrink-0 border-b-2 border-[var(--inspir-ink)] px-5 md:px-8 py-4 flex items-start justify-between gap-4 bg-[var(--inspir-paper)]">
               <div>
-                <h3 className="text-lg font-bold">
-                  Post do Dia {new Date(selectedDateStr + 'T12:00:00').toLocaleDateString('pt-BR', {
+                <p className="inspir-mono text-[var(--inspir-muted)] mb-1">Ateliê do dia</p>
+                <h3
+                  id="post-dialog-title"
+                  className="inspir-display text-2xl md:text-3xl text-[var(--inspir-ink)]"
+                >
+                  {new Date(selectedDateStr + 'T12:00:00').toLocaleDateString('pt-BR', {
                     day: 'numeric',
                     month: 'long',
                     year: 'numeric',
                   })}
                 </h3>
-                <p className="text-xs text-zinc-400">Edite, visualize e baixe seu post de Instagram</p>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedDateStr(null)}
-                className="text-zinc-400 hover:text-zinc-200 text-sm bg-zinc-800 hover:bg-zinc-700 px-3 py-1.5 rounded-lg transition-colors"
+                className="inspir-btn-ghost px-4 py-2 text-sm font-bold shrink-0"
               >
                 Fechar
               </button>
-            </div>
+            </header>
 
-            {/* Corpo do Modal */}
-            <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* Coluna Esquerda: Visualização do Canvas */}
-              <div className="flex flex-col items-center justify-center bg-zinc-950/40 p-4 rounded-xl border border-zinc-800/50">
+            <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,340px)] md:divide-x-2 md:divide-[var(--inspir-ink)] bg-[var(--inspir-cream)] overflow-hidden">
+              <div className="min-h-0 flex flex-col items-center justify-center p-4 sm:p-6 border-b-2 md:border-b-0 border-[var(--inspir-line)] bg-[var(--inspir-paper)] overflow-y-auto md:overflow-hidden max-h-[45vh] md:max-h-none shrink-0 md:shrink md:flex-1">
                 {selectedPost ? (
                   <CanvasPost
                     quote={editingQuote}
@@ -843,31 +943,34 @@ export default function Home() {
                     onComposeReady={(url) => setCanvasDataUrl(url)}
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-center space-y-4 max-w-sm">
-                    <div className="bg-zinc-800 p-4 rounded-full text-zinc-500">
-                      <Sparkles className="w-8 h-8" />
+                  <div className="flex flex-col items-center justify-center py-10 text-center space-y-5 max-w-xs">
+                    <div className="border-2 border-[var(--inspir-ink)] p-5 text-[var(--inspir-terracotta)]">
+                      <Sparkles className="w-9 h-9" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-zinc-200">Nenhum post gerado</h4>
-                      <p className="text-xs text-zinc-500 mt-1">
-                        Use o poder da inteligência artificial para criar uma frase impactante e uma imagem de fundo conceitual para este dia.
+                      <h4 className="inspir-display text-xl text-[var(--inspir-ink)]">
+                        Dia em branco
+                      </h4>
+                      <p className="text-xs text-[var(--inspir-muted)] mt-2 leading-relaxed">
+                        Gere frase e fundo com IA ou envie sua própria fotografia.
                       </p>
                     </div>
-                    
+
                     <button
+                      type="button"
                       onClick={handleGeneratePost}
                       disabled={isGenerating}
-                      className="w-full bg-gradient-to-r from-pink-500 via-red-500 to-yellow-500 hover:from-pink-600 hover:to-yellow-600 text-white font-semibold py-2.5 px-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                      className="inspir-btn-primary w-full font-bold py-3 px-4 flex items-center justify-center gap-2 text-sm"
                     >
                       {isGenerating ? (
                         <>
                           <RefreshCw className="w-4 h-4 animate-spin" />
-                          Gerando Post...
+                          Gerando...
                         </>
                       ) : (
                         <>
                           <Sparkles className="w-4 h-4" />
-                          Gerar Post com IA
+                          Gerar com IA
                         </>
                       )}
                     </button>
@@ -883,23 +986,22 @@ export default function Home() {
                       type="button"
                       onClick={() => customPhotoInputRef.current?.click()}
                       disabled={isUploadingCustom}
-                      className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-zinc-700 text-sm disabled:opacity-50"
+                      className="inspir-btn-ghost w-full font-semibold py-3 px-4 flex items-center justify-center gap-2 text-sm disabled:opacity-50"
                     >
-                      <Upload className="w-4 h-4 text-pink-500" />
-                      {isUploadingCustom ? 'Enviando foto...' : 'Usar minha foto'}
+                      <Upload className="w-4 h-4" />
+                      {isUploadingCustom ? 'Enviando...' : 'Minha foto'}
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* Coluna Direita: Formulários e Ações */}
-              <div className="space-y-5 flex flex-col justify-between">
+              <div className="min-h-0 flex flex-col overflow-y-auto p-5 md:p-6">
                 {selectedPost ? (
                   <>
-                    <div className="space-y-4">
+                    <div className="space-y-4 pb-4">
                       <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-zinc-400">
-                          Formato de entrega
+                        <label className="inspir-mono text-[var(--inspir-muted)]">
+                          Formato
                         </label>
                         <div className="grid grid-cols-2 gap-2">
                           {(['feed', 'story'] as const).map((format) => (
@@ -907,42 +1009,42 @@ export default function Home() {
                               key={format}
                               type="button"
                               onClick={() => handleDeliveryFormatChange(format)}
-                              className={`py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                              className={`py-2 text-xs font-bold border-2 transition-all ${
                                 editingDeliveryFormat === format
-                                  ? 'bg-pink-950/40 border-pink-500 text-pink-300'
-                                  : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300'
+                                  ? 'inspir-chip-active'
+                                  : 'border-[var(--inspir-line)] text-[var(--inspir-muted)] hover:border-[var(--inspir-ink-soft)]'
                               }`}
                             >
-                              {format === 'feed' ? 'Feed (1:1)' : 'Story (9:16)'}
+                              {format === 'feed' ? 'Feed 1:1' : 'Story 9:16'}
                             </button>
                           ))}
                         </div>
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-zinc-400">
-                          Origem do fundo
+                        <label className="inspir-mono text-[var(--inspir-muted)]">
+                          Fundo
                         </label>
                         <div className="grid grid-cols-2 gap-2">
                           <button
                             type="button"
                             onClick={() => handleBackgroundSourceChange('ai')}
-                            className={`py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                            className={`py-2 text-xs font-bold border-2 transition-all ${
                               editingActiveBackgroundSource === 'ai'
-                                ? 'bg-blue-950/40 border-blue-500 text-blue-300'
-                                : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300'
+                                ? 'inspir-chip-active'
+                                : 'border-[var(--inspir-line)] text-[var(--inspir-muted)] hover:border-[var(--inspir-ink-soft)]'
                             }`}
                           >
-                            Fundo IA
+                            IA
                           </button>
                           <button
                             type="button"
                             onClick={() => handleBackgroundSourceChange('custom')}
                             disabled={!selectedPostHasCustom}
-                            className={`py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                            className={`py-2 text-xs font-bold border-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                               editingActiveBackgroundSource === 'custom'
-                                ? 'bg-purple-950/40 border-purple-500 text-purple-300'
-                                : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300'
+                                ? 'inspir-chip-active'
+                                : 'border-[var(--inspir-line)] text-[var(--inspir-muted)] hover:border-[var(--inspir-ink-soft)]'
                             }`}
                           >
                             Minha foto
@@ -951,8 +1053,8 @@ export default function Home() {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-xs font-medium text-zinc-400">
-                          Foto personalizada
+                        <label className="inspir-mono text-[var(--inspir-muted)]">
+                          Upload
                         </label>
                         <input
                           ref={customPhotoInputRef}
@@ -966,32 +1068,31 @@ export default function Home() {
                             type="button"
                             onClick={() => customPhotoInputRef.current?.click()}
                             disabled={isUploadingCustom}
-                            className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-semibold py-2 px-3 rounded-xl flex items-center justify-center gap-2 transition-colors border border-zinc-700 text-xs disabled:opacity-50"
+                            className="inspir-btn-ghost flex-1 font-semibold py-2 px-3 flex items-center justify-center gap-2 text-xs disabled:opacity-50"
                           >
-                            <Upload className="w-3.5 h-3.5 text-pink-500" />
-                            {isUploadingCustom ? 'Enviando...' : 'Enviar foto'}
+                            <Upload className="w-3.5 h-3.5" />
+                            {isUploadingCustom ? 'Enviando...' : 'Enviar'}
                           </button>
                           {selectedPostHasCustom && (
                             <button
                               type="button"
                               onClick={handleRemoveCustomPhoto}
-                              className="bg-red-950/30 hover:bg-red-900/40 text-red-400 border border-red-900/50 font-semibold py-2 px-3 rounded-xl flex items-center justify-center gap-1 transition-colors text-xs"
+                              className="border-2 border-[var(--inspir-terracotta)] text-[var(--inspir-terracotta)] font-bold py-2 px-3 flex items-center justify-center gap-1 text-xs hover:bg-[var(--inspir-terracotta)] hover:text-[var(--inspir-cream)] transition-colors"
                               title="Remover foto personalizada"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
-                              Remover
                             </button>
                           )}
                         </div>
-                        <p className="text-[10px] text-zinc-500">
-                          JPEG, PNG ou WebP. Ao enviar, a foto passa a ser a origem ativa.
+                        <p className="text-[10px] text-[var(--inspir-muted)]">
+                          JPEG, PNG ou WebP.
                         </p>
                       </div>
 
                       <div className="space-y-1.5">
-                        <div className="flex justify-between text-xs text-zinc-400">
-                          <span>Tamanho da Fonte</span>
-                          <span className="font-semibold text-zinc-200">{fontSize}px</span>
+                        <div className="flex justify-between inspir-mono text-[var(--inspir-muted)]">
+                          <span>Fonte</span>
+                          <span className="text-[var(--inspir-ink)]">{fontSize}px</span>
                         </div>
                         <input
                           type="range"
@@ -999,91 +1100,99 @@ export default function Home() {
                           max="80"
                           value={fontSize}
                           onChange={(e) => setFontSize(Number(e.target.value))}
-                          className="w-full accent-pink-500 bg-zinc-800 rounded-lg appearance-none h-1.5"
+                          className="w-full accent-[var(--inspir-terracotta)] h-2 cursor-pointer"
                         />
                       </div>
 
-                      {/* Edição da Frase */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-zinc-400">Frase do Post (Imagem)</label>
+                        <label className="inspir-mono text-[var(--inspir-muted)]">
+                          Frase na imagem
+                        </label>
                         <textarea
                           rows={3}
                           value={editingQuote}
                           onChange={(e) => setQuote(e.target.value)}
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-pink-500 transition-colors text-sm"
-                          placeholder="Digite a frase que aparecerá no post..."
+                          className="inspir-input w-full p-3 text-sm resize-none"
+                          placeholder="A frase que aparece no post..."
                         />
                       </div>
 
-                      {/* Edição da Legenda */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-zinc-400">Legenda do Instagram</label>
+                        <label className="inspir-mono text-[var(--inspir-muted)]">
+                          Legenda
+                        </label>
                         <textarea
-                          rows={6}
+                          rows={5}
                           value={editingCaption}
                           onChange={(e) => setCaption(e.target.value)}
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-pink-500 transition-colors text-sm font-mono"
-                          placeholder="Escreva a legenda e hashtags..."
+                          className="inspir-input w-full p-3 text-sm font-mono resize-none"
+                          placeholder="Legenda e hashtags..."
                         />
                       </div>
 
-                      {/* Status do Post */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-zinc-400">Status da Publicação</label>
+                        <label className="inspir-mono text-[var(--inspir-muted)]">
+                          Status
+                        </label>
                         <div className="grid grid-cols-3 gap-2">
                           {(['draft', 'ready', 'published'] as const).map((s) => (
                             <button
                               key={s}
                               type="button"
                               onClick={() => setStatus(s)}
-                              className={`py-1.5 rounded-lg text-xs font-semibold capitalize border transition-all ${
+                              className={`py-2 text-[10px] font-bold border-2 transition-all ${
                                 editingStatus === s
                                   ? s === 'published'
-                                    ? 'bg-emerald-950/40 border-emerald-500 text-emerald-400'
-                                    : s === 'ready'
-                                    ? 'bg-blue-950/40 border-blue-500 text-blue-400'
-                                    : 'bg-zinc-800 border-zinc-600 text-zinc-300'
-                                  : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300'
+                                    ? 'bg-[var(--inspir-sage)] border-[var(--inspir-sage)] text-[var(--inspir-cream)]'
+                                    : 'inspir-chip-active'
+                                  : 'border-[var(--inspir-line)] text-[var(--inspir-muted)]'
                               }`}
                             >
-                              {s === 'draft' ? 'Rascunho' : s === 'ready' ? 'Pronto' : 'Publicado'}
+                              {s === 'draft'
+                                ? 'Rascunho'
+                                : s === 'ready'
+                                  ? 'Pronto'
+                                  : 'Publicado'}
                             </button>
                           ))}
                         </div>
                       </div>
                     </div>
 
-                    {/* Botões de Ação */}
-                    <div className="pt-4 border-t border-zinc-800 space-y-3">
+                    <div className="shrink-0 pt-5 mt-auto border-t-2 border-[var(--inspir-line)] space-y-3 sticky bottom-0 bg-[var(--inspir-cream)] pb-1">
                       <div className="grid grid-cols-2 gap-3">
                         <button
+                          type="button"
                           onClick={handleDownloadPost}
-                          className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-zinc-700 text-sm"
+                          className="inspir-btn-ghost font-semibold py-2.5 px-4 flex items-center justify-center gap-2 text-sm"
                         >
-                          <Download className="w-4 h-4 text-pink-500" />
-                          Baixar Imagem
+                          <Download className="w-4 h-4" />
+                          Baixar PNG
                         </button>
                         <button
+                          type="button"
                           onClick={handleCopyCaption}
-                          className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-zinc-700 text-sm"
+                          className="inspir-btn-ghost font-semibold py-2.5 px-4 flex items-center justify-center gap-2 text-sm"
                         >
-                          <Copy className="w-4 h-4 text-pink-500" />
-                          Copiar Legenda
+                          <Copy className="w-4 h-4" />
+                          Copiar legenda
                         </button>
                       </div>
 
                       <div className="flex gap-2">
                         <button
+                          type="button"
                           onClick={handleSaveChanges}
-                          className="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm shadow-lg"
+                          className="inspir-btn-primary flex-1 font-bold py-2.5 px-4 flex items-center justify-center gap-2 text-sm"
                         >
                           <Check className="w-4 h-4" />
-                          Salvar Alterações
+                          Salvar
                         </button>
                         <button
+                          type="button"
                           onClick={handleDeletePost}
-                          className="bg-red-950/30 hover:bg-red-900/40 text-red-400 border border-red-900/50 font-semibold p-2.5 rounded-xl flex items-center justify-center transition-colors"
-                          title="Excluir Post"
+                          className="border-2 border-[var(--inspir-terracotta)] text-[var(--inspir-terracotta)] font-bold px-4 py-2.5 hover:bg-[var(--inspir-terracotta)] hover:text-[var(--inspir-cream)] transition-colors text-sm"
+                          title="Excluir post"
                         >
                           Excluir
                         </button>
@@ -1091,15 +1200,14 @@ export default function Home() {
                     </div>
                   </>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center p-6 bg-zinc-950/20 rounded-xl border border-dashed border-zinc-800">
-                    <AlertCircle className="w-8 h-8 text-zinc-600 mb-2" />
-                    <p className="text-xs text-zinc-500">
-                      Gere o post para liberar as opções de edição de frase, legenda, download e publicação.
+                  <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center p-8 border-2 border-dashed border-[var(--inspir-line)]">
+                    <AlertCircle className="w-8 h-8 text-[var(--inspir-muted)] mb-3" />
+                    <p className="text-xs text-[var(--inspir-muted)] leading-relaxed max-w-[220px]">
+                      Gere o post para editar frase, legenda e exportar a imagem.
                     </p>
                   </div>
                 )}
               </div>
-
             </div>
           </div>
         </div>
