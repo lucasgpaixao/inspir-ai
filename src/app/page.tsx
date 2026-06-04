@@ -12,15 +12,24 @@ import {
   Check,
   AlertCircle,
   Settings as SettingsIcon,
-  Eye,
   Lock,
   Database,
   RefreshCw,
   FileText,
-  ExternalLink
+  Upload,
+  Trash2,
 } from 'lucide-react';
-import { STYLES_PRESETS, StylePreset } from '@/lib/styles';
-import { generateMockPostsForMonth, Post } from '@/lib/mock-data';
+import { STYLES_PRESETS } from '@/lib/styles';
+import { generateMockPostsForMonth } from '@/lib/mock-data';
+import {
+  ACCEPTED_CUSTOM_IMAGE_TYPES,
+  BackgroundSource,
+  DeliveryFormat,
+  getActiveBackgroundUrl,
+  hasCustomBackground,
+  normalizePost,
+  Post,
+} from '@/lib/posts';
 import { CanvasPost } from '@/components/canvas-post';
 import { supabase } from '@/lib/supabase';
 import { Toaster, toast } from 'sonner';
@@ -47,6 +56,12 @@ export default function Home() {
   const [editingStatus, setStatus] = useState<'draft' | 'ready' | 'published'>('ready');
   const [fontSize, setFontSize] = useState<number>(48);
   const [canvasDataUrl, setCanvasDataUrl] = useState<string>('');
+  const [editingDeliveryFormat, setEditingDeliveryFormat] =
+    useState<DeliveryFormat>('feed');
+  const [editingActiveBackgroundSource, setEditingActiveBackgroundSource] =
+    useState<BackgroundSource>('ai');
+  const [isUploadingCustom, setIsUploadingCustom] = useState<boolean>(false);
+  const customPhotoInputRef = React.useRef<HTMLInputElement>(null);
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -106,7 +121,8 @@ export default function Home() {
 
       if (!error && data && data.length > 0) {
         const postsMap: Record<string, Post> = {};
-        data.forEach((post: any) => {
+        data.forEach((row: Record<string, unknown>) => {
+          const post = normalizePost(row);
           postsMap[post.post_date] = post;
         });
         setPosts(postsMap);
@@ -169,11 +185,186 @@ export default function Home() {
       setQuote(existingPost.quote);
       setCaption(existingPost.caption);
       setStatus(existingPost.status);
+      setEditingDeliveryFormat(existingPost.delivery_format);
+      setEditingActiveBackgroundSource(existingPost.active_background_source);
     } else {
       setQuote('');
       setCaption('');
       setStatus('ready');
+      setEditingDeliveryFormat('feed');
+      setEditingActiveBackgroundSource('ai');
     }
+    setCanvasDataUrl('');
+  };
+
+  const patchSelectedPost = (patch: Partial<Post>) => {
+    if (!selectedDateStr) return;
+    setPosts((prev) => {
+      const current = prev[selectedDateStr];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [selectedDateStr]: { ...current, ...patch },
+      };
+    });
+  };
+
+  const handleDeliveryFormatChange = (format: DeliveryFormat) => {
+    setEditingDeliveryFormat(format);
+    patchSelectedPost({ delivery_format: format });
+  };
+
+  const handleBackgroundSourceChange = (source: BackgroundSource) => {
+    if (source === 'custom') {
+      const post = selectedDateStr ? posts[selectedDateStr] : null;
+      if (post && !hasCustomBackground(post)) {
+        toast.error('Envie uma foto personalizada antes de ativar esta origem.');
+        return;
+      }
+    }
+    setEditingActiveBackgroundSource(source);
+    patchSelectedPost({ active_background_source: source });
+  };
+
+  const handleUploadCustomPhoto = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedDateStr) return;
+    event.target.value = '';
+
+    if (
+      !ACCEPTED_CUSTOM_IMAGE_TYPES.includes(
+        file.type as (typeof ACCEPTED_CUSTOM_IMAGE_TYPES)[number]
+      )
+    ) {
+      toast.error('Formato inválido. Use JPEG, PNG ou WebP.');
+      return;
+    }
+
+    setIsUploadingCustom(true);
+    const toastId = toast.loading('Enviando foto personalizada...');
+
+    try {
+      if (isSupabaseConnected) {
+        if (!adminPassword) {
+          toast.error('Insira a senha administrativa para enviar fotos.', {
+            id: toastId,
+          });
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('date', selectedDateStr);
+        formData.append('password', adminPassword);
+        formData.append('file', file);
+
+        const response = await fetch('/api/posts/upload-custom', {
+          method: 'POST',
+          body: formData,
+        });
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Falha no upload');
+        }
+
+        const post = normalizePost(result.data);
+        setPosts((prev) => ({ ...prev, [selectedDateStr]: post }));
+        setQuote(post.quote);
+        setCaption(post.caption);
+        setStatus(post.status);
+        setEditingDeliveryFormat(post.delivery_format);
+        setEditingActiveBackgroundSource(post.active_background_source);
+        toast.success('Foto personalizada enviada!', { id: toastId });
+      } else {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error('Falha ao ler arquivo'));
+          reader.readAsDataURL(file);
+        });
+
+        const existing = posts[selectedDateStr];
+        const post: Post = {
+          id: existing?.id ?? `post-${selectedDateStr}`,
+          post_date: selectedDateStr,
+          quote: existing?.quote || editingQuote || 'Sua frase aqui',
+          caption: existing?.caption || editingCaption,
+          image_url:
+            existing?.image_url ||
+            'https://images.unsplash.com/photo-1506126613408-eca07ce68773?q=80&w=600&auto=format&fit=crop',
+          image_path: existing?.image_path ?? null,
+          custom_image_url: dataUrl,
+          custom_image_path: `local/${selectedDateStr}/background-custom`,
+          delivery_format: editingDeliveryFormat,
+          active_background_source: 'custom',
+          status: existing?.status ?? 'draft',
+        };
+
+        setPosts((prev) => ({ ...prev, [selectedDateStr]: post }));
+        setEditingActiveBackgroundSource('custom');
+        if (!existing) {
+          setQuote(post.quote);
+          setCaption(post.caption);
+          setStatus(post.status);
+        }
+        toast.success('Foto salva localmente (modo demo)!', { id: toastId });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro no upload';
+      toast.error(message, { id: toastId });
+    } finally {
+      setIsUploadingCustom(false);
+    }
+  };
+
+  const handleRemoveCustomPhoto = async () => {
+    if (!selectedDateStr) return;
+    const post = posts[selectedDateStr];
+    if (!post || !hasCustomBackground(post)) return;
+
+    if (isSupabaseConnected) {
+      if (!adminPassword) {
+        toast.error('Insira a senha administrativa para remover fotos.');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/posts/remove-custom', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: selectedDateStr,
+            password: adminPassword,
+          }),
+        });
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(result.error || 'Falha ao remover');
+        }
+
+        const updated = normalizePost(result.data);
+        setPosts((prev) => ({ ...prev, [selectedDateStr]: updated }));
+        setEditingActiveBackgroundSource(updated.active_background_source);
+        toast.success('Foto personalizada removida.');
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Erro ao remover';
+        toast.error(message);
+      }
+      return;
+    }
+
+    const updated: Post = {
+      ...post,
+      custom_image_url: null,
+      custom_image_path: null,
+      active_background_source:
+        post.active_background_source === 'custom' ? 'ai' : post.active_background_source,
+    };
+    setPosts((prev) => ({ ...prev, [selectedDateStr]: updated }));
+    setEditingActiveBackgroundSource(updated.active_background_source);
+    toast.success('Foto personalizada removida (modo demo).');
   };
 
   // Gerar Post via IA
@@ -207,15 +398,19 @@ export default function Home() {
       if (result.success) {
         toast.success('Post gerado com sucesso!', { id: toastId });
         // Atualizar lista de posts
-        const newPost: Post = result.data;
+        const newPost = normalizePost({
+          ...result.data,
+          id: posts[selectedDateStr]?.id ?? `post-${selectedDateStr}`,
+        });
         setPosts((prev) => ({
           ...prev,
           [selectedDateStr]: newPost,
         }));
-        // Atualizar campos de edição
         setQuote(newPost.quote);
         setCaption(newPost.caption);
         setStatus(newPost.status);
+        setEditingDeliveryFormat(newPost.delivery_format);
+        setEditingActiveBackgroundSource(newPost.active_background_source);
       } else {
         toast.error(`Erro: ${result.error || 'Falha na geração'}`, { id: toastId });
       }
@@ -231,16 +426,23 @@ export default function Home() {
   const handleSaveChanges = async () => {
     if (!selectedDateStr) return;
 
+    const existing = posts[selectedDateStr];
     const updatedPost: Post = {
-      id: posts[selectedDateStr]?.id || `post-${selectedDateStr}`,
+      id: existing?.id || `post-${selectedDateStr}`,
       post_date: selectedDateStr,
       quote: editingQuote,
       caption: editingCaption,
       status: editingStatus,
-      image_url: posts[selectedDateStr]?.image_url || 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?q=80&w=600&auto=format&fit=crop',
+      image_url:
+        existing?.image_url ||
+        'https://images.unsplash.com/photo-1506126613408-eca07ce68773?q=80&w=600&auto=format&fit=crop',
+      image_path: existing?.image_path ?? null,
+      custom_image_url: existing?.custom_image_url ?? null,
+      custom_image_path: existing?.custom_image_path ?? null,
+      delivery_format: editingDeliveryFormat,
+      active_background_source: editingActiveBackgroundSource,
     };
 
-    // Salvar no Supabase se conectado
     if (isSupabaseConnected) {
       try {
         const { error } = await supabase.from('posts').upsert({
@@ -249,6 +451,11 @@ export default function Home() {
           caption: editingCaption,
           status: editingStatus,
           image_url: updatedPost.image_url,
+          image_path: updatedPost.image_path,
+          custom_image_url: updatedPost.custom_image_url,
+          custom_image_path: updatedPost.custom_image_path,
+          delivery_format: updatedPost.delivery_format,
+          active_background_source: updatedPost.active_background_source,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'post_date' });
 
@@ -256,6 +463,7 @@ export default function Home() {
         toast.success('Alterações salvas no banco de dados!');
       } catch (e: any) {
         toast.error(`Erro ao salvar no banco: ${e.message}`);
+        return;
       }
     } else {
       toast.success('Salvo localmente (Modo de Demonstração)');
@@ -265,6 +473,7 @@ export default function Home() {
       ...prev,
       [selectedDateStr]: updatedPost,
     }));
+    setSelectedDateStr(null);
   };
 
   // Copiar Legenda para Área de Transferência
@@ -281,7 +490,7 @@ export default function Home() {
     }
 
     const link = document.createElement('a');
-    link.download = `post-instagram-${selectedDateStr}.png`;
+    link.download = `post-instagram-${selectedDateStr}-${editingDeliveryFormat}.png`;
     link.href = canvasDataUrl;
     link.click();
     toast.success('Download iniciado!');
@@ -319,6 +528,15 @@ export default function Home() {
   const days = getDaysInMonth();
   const activePreset = STYLES_PRESETS[stylePreset] || STYLES_PRESETS.minimalist;
   const selectedPost = selectedDateStr ? posts[selectedDateStr] : null;
+  const previewBackgroundUrl = selectedPost
+    ? getActiveBackgroundUrl({
+        ...selectedPost,
+        active_background_source: editingActiveBackgroundSource,
+        custom_image_url: selectedPost.custom_image_url,
+      })
+    : '';
+  const selectedPostHasCustom =
+    selectedPost != null && hasCustomBackground(selectedPost);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans">
@@ -438,12 +656,18 @@ export default function Home() {
                       {post && (
                         <div className="absolute inset-0 z-0 opacity-20 group-hover:opacity-30 transition-opacity">
                           <img
-                            src={post.image_url}
+                            src={getActiveBackgroundUrl(post)}
                             alt=""
                             className="w-full h-full object-cover"
                           />
                           <div className="absolute inset-0 bg-black/40" />
                         </div>
+                      )}
+
+                      {post && (
+                        <span className="absolute top-1 right-1 z-20 text-[8px] font-bold uppercase px-1 py-0.5 rounded bg-zinc-950/85 text-zinc-300 border border-zinc-700">
+                          {post.delivery_format === 'story' ? 'Story' : 'Feed'}
+                        </span>
                       )}
 
                       <div className="relative z-10 flex items-center justify-between w-full">
@@ -612,8 +836,9 @@ export default function Home() {
                 {selectedPost ? (
                   <CanvasPost
                     quote={editingQuote}
-                    imageUrl={selectedPost.image_url}
+                    imageUrl={previewBackgroundUrl}
                     preset={activePreset}
+                    deliveryFormat={editingDeliveryFormat}
                     fontSize={fontSize}
                     onComposeReady={(url) => setCanvasDataUrl(url)}
                   />
@@ -646,6 +871,23 @@ export default function Home() {
                         </>
                       )}
                     </button>
+
+                    <input
+                      ref={customPhotoInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={handleUploadCustomPhoto}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => customPhotoInputRef.current?.click()}
+                      disabled={isUploadingCustom}
+                      className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-zinc-700 text-sm disabled:opacity-50"
+                    >
+                      <Upload className="w-4 h-4 text-pink-500" />
+                      {isUploadingCustom ? 'Enviando foto...' : 'Usar minha foto'}
+                    </button>
                   </div>
                 )}
               </div>
@@ -655,7 +897,97 @@ export default function Home() {
                 {selectedPost ? (
                   <>
                     <div className="space-y-4">
-                      {/* Ajuste de Fonte */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-zinc-400">
+                          Formato de entrega
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(['feed', 'story'] as const).map((format) => (
+                            <button
+                              key={format}
+                              type="button"
+                              onClick={() => handleDeliveryFormatChange(format)}
+                              className={`py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                                editingDeliveryFormat === format
+                                  ? 'bg-pink-950/40 border-pink-500 text-pink-300'
+                                  : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300'
+                              }`}
+                            >
+                              {format === 'feed' ? 'Feed (1:1)' : 'Story (9:16)'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-zinc-400">
+                          Origem do fundo
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleBackgroundSourceChange('ai')}
+                            className={`py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                              editingActiveBackgroundSource === 'ai'
+                                ? 'bg-blue-950/40 border-blue-500 text-blue-300'
+                                : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300'
+                            }`}
+                          >
+                            Fundo IA
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleBackgroundSourceChange('custom')}
+                            disabled={!selectedPostHasCustom}
+                            className={`py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                              editingActiveBackgroundSource === 'custom'
+                                ? 'bg-purple-950/40 border-purple-500 text-purple-300'
+                                : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300'
+                            }`}
+                          >
+                            Minha foto
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-zinc-400">
+                          Foto personalizada
+                        </label>
+                        <input
+                          ref={customPhotoInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={handleUploadCustomPhoto}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => customPhotoInputRef.current?.click()}
+                            disabled={isUploadingCustom}
+                            className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-semibold py-2 px-3 rounded-xl flex items-center justify-center gap-2 transition-colors border border-zinc-700 text-xs disabled:opacity-50"
+                          >
+                            <Upload className="w-3.5 h-3.5 text-pink-500" />
+                            {isUploadingCustom ? 'Enviando...' : 'Enviar foto'}
+                          </button>
+                          {selectedPostHasCustom && (
+                            <button
+                              type="button"
+                              onClick={handleRemoveCustomPhoto}
+                              className="bg-red-950/30 hover:bg-red-900/40 text-red-400 border border-red-900/50 font-semibold py-2 px-3 rounded-xl flex items-center justify-center gap-1 transition-colors text-xs"
+                              title="Remover foto personalizada"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Remover
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-zinc-500">
+                          JPEG, PNG ou WebP. Ao enviar, a foto passa a ser a origem ativa.
+                        </p>
+                      </div>
+
                       <div className="space-y-1.5">
                         <div className="flex justify-between text-xs text-zinc-400">
                           <span>Tamanho da Fonte</span>

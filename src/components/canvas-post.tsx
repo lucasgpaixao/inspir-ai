@@ -1,21 +1,33 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { DeliveryFormat } from '@/lib/posts';
 import { StylePreset } from '@/lib/styles';
 
 interface CanvasPostProps {
   quote: string;
   imageUrl: string;
   preset: StylePreset;
-  fontSize?: number; // Permite ajuste dinâmico se necessário
+  deliveryFormat?: DeliveryFormat;
+  fontSize?: number;
   lineHeight?: number;
   onComposeReady?: (dataUrl: string) => void;
+}
+
+const CANVAS_WIDTH = 1080;
+
+function getCanvasDimensions(format: DeliveryFormat) {
+  if (format === 'story') {
+    return { width: CANVAS_WIDTH, height: 1920 };
+  }
+  return { width: CANVAS_WIDTH, height: CANVAS_WIDTH };
 }
 
 export const CanvasPost: React.FC<CanvasPostProps> = ({
   quote,
   imageUrl,
   preset,
+  deliveryFormat = 'feed',
   fontSize = 48,
   lineHeight = 1.4,
   onComposeReady,
@@ -24,7 +36,6 @@ export const CanvasPost: React.FC<CanvasPostProps> = ({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Efeito para carregar a imagem e desenhar no Canvas
   useEffect(() => {
     let active = true;
     if (!imageUrl) return;
@@ -33,7 +44,6 @@ export const CanvasPost: React.FC<CanvasPostProps> = ({
     setError(null);
 
     const img = new Image();
-    // Permitir carregar imagens de outros domínios (como Supabase Storage ou OpenAI) no Canvas
     img.crossOrigin = 'anonymous';
     img.src = imageUrl;
 
@@ -48,7 +58,6 @@ export const CanvasPost: React.FC<CanvasPostProps> = ({
       if (active) {
         console.error('Erro ao carregar a imagem de fundo no Canvas:', imageUrl);
         setError('Não foi possível carregar a imagem de fundo original.');
-        // Desenha apenas com cor de fundo em caso de erro para não travar totalmente o app
         drawCanvas(null);
       }
     };
@@ -56,9 +65,8 @@ export const CanvasPost: React.FC<CanvasPostProps> = ({
     return () => {
       active = false;
     };
-  }, [quote, imageUrl, preset, fontSize, lineHeight]);
+  }, [quote, imageUrl, preset, fontSize, lineHeight, deliveryFormat]);
 
-  // Função para quebrar texto em múltiplas linhas de acordo com a largura limite
   const wrapText = (
     ctx: CanvasRenderingContext2D,
     text: string,
@@ -84,6 +92,26 @@ export const CanvasPost: React.FC<CanvasPostProps> = ({
     return lines;
   };
 
+  const resolveFontSize = (
+    ctx: CanvasRenderingContext2D,
+    lines: string[],
+    baseFontSize: number,
+    canvasHeight: number,
+    isStory: boolean
+  ) => {
+    let size = baseFontSize;
+    const minSize = isStory ? 28 : 24;
+    const maxTextHeight = isStory ? canvasHeight * 0.45 : canvasHeight * 0.55;
+
+    while (size > minSize) {
+      const totalHeight = lines.length * size * lineHeight;
+      if (totalHeight <= maxTextHeight) break;
+      size -= 2;
+    }
+
+    return size;
+  };
+
   const drawCanvas = (img: HTMLImageElement | null) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -91,57 +119,69 @@ export const CanvasPost: React.FC<CanvasPostProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Tamanho padrão feed do Instagram (1:1 de alta qualidade)
-    const size = 1080;
-    canvas.width = size;
-    canvas.height = size;
+    const { width, height } = getCanvasDimensions(deliveryFormat);
+    const isStory = deliveryFormat === 'story';
+    canvas.width = width;
+    canvas.height = height;
 
-    // 1. Desenhar fundo (Imagem ou Gradiente de Fallback)
     if (img) {
-      // Ajustar imagem para preencher proporcionalmente (object-fit cover)
-      const scale = Math.max(size / img.width, size / img.height);
-      const x = (size - img.width * scale) / 2;
-      const y = (size - img.height * scale) / 2;
+      const scale = Math.max(width / img.width, height / img.height);
+      const x = (width - img.width * scale) / 2;
+      const y = (height - img.height * scale) / 2;
       ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
     } else {
-      // Caso a imagem falhe, cria um gradiente sofisticado
-      const bgGrad = ctx.createLinearGradient(0, 0, size, size);
+      const bgGrad = ctx.createLinearGradient(0, 0, width, height);
       bgGrad.addColorStop(0, '#111827');
       bgGrad.addColorStop(1, '#1f2937');
       ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, size, size);
+      ctx.fillRect(0, 0, width, height);
     }
 
-    // 2. Desenhar Camada de Escurecimento (Overlay) para legibilidade do texto
     if (preset.gradientOverlay) {
-      // Gradiente radial ou linear focado no centro
       const overlayGrad = ctx.createRadialGradient(
-        size / 2,
-        size / 2,
+        width / 2,
+        height * (isStory ? 0.42 : 0.5),
         100,
-        size / 2,
-        size / 2,
-        size * 0.7
+        width / 2,
+        height * (isStory ? 0.42 : 0.5),
+        Math.max(width, height) * 0.7
       );
       overlayGrad.addColorStop(0, `rgba(0, 0, 0, ${preset.overlayOpacity - 0.15})`);
       overlayGrad.addColorStop(1, `rgba(0, 0, 0, ${preset.overlayOpacity + 0.15})`);
       ctx.fillStyle = overlayGrad;
-      ctx.fillRect(0, 0, size, size);
+      ctx.fillRect(0, 0, width, height);
     } else {
-      // Overlay sólido de cor preta com opacidade
       ctx.fillStyle = `rgba(0, 0, 0, ${preset.overlayOpacity})`;
-      ctx.fillRect(0, 0, size, size);
+      ctx.fillRect(0, 0, width, height);
     }
 
-    // 3. Formatar e desenhar o Texto (Frase)
-    // Definir estilos de fonte baseado no preset
-    const weightName = preset.fontWeight === 'italic' ? 'italic normal' : preset.fontWeight;
-    ctx.font = `${weightName} ${fontSize}px ${preset.fontFamily}, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-    ctx.fillStyle = preset.fontColor;
+    const weightName =
+      preset.fontWeight === 'italic' ? 'italic normal' : preset.fontWeight;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Aplicar Sombra do Texto
+    let processedText = quote;
+    if (preset.textCase === 'uppercase') {
+      processedText = quote.toUpperCase();
+    } else if (preset.textCase === 'capitalize') {
+      processedText = quote.replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+
+    const maxWidth = width - 160;
+    ctx.font = `${weightName} ${fontSize}px ${preset.fontFamily}, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    let lines = wrapText(ctx, processedText, maxWidth);
+    const effectiveFontSize = resolveFontSize(
+      ctx,
+      lines,
+      fontSize,
+      height,
+      isStory
+    );
+
+    ctx.font = `${weightName} ${effectiveFontSize}px ${preset.fontFamily}, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    lines = wrapText(ctx, processedText, maxWidth);
+
+    ctx.fillStyle = preset.fontColor;
     if (preset.textShadow) {
       ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
       ctx.shadowBlur = 15;
@@ -154,36 +194,22 @@ export const CanvasPost: React.FC<CanvasPostProps> = ({
       ctx.shadowOffsetY = 0;
     }
 
-    // Processar caixa de texto (Upper/Normal/Capitalize)
-    let processedText = quote;
-    if (preset.textCase === 'uppercase') {
-      processedText = quote.toUpperCase();
-    } else if (preset.textCase === 'capitalize') {
-      processedText = quote.replace(/\b\w/g, (c) => c.toUpperCase());
-    }
+    const totalTextHeight = lines.length * effectiveFontSize * lineHeight;
+    const centerY = isStory ? height * 0.4 : height / 2;
+    let startY = centerY - totalTextHeight / 2 + (effectiveFontSize * lineHeight) / 2;
 
-    // Margem interna para evitar encostar nas bordas (80px de margem)
-    const maxWidth = size - 160;
-    const lines = wrapText(ctx, processedText, maxWidth);
-
-    // Calcular altura total ocupada pelas linhas para centralizar perfeitamente no eixo Y
-    const totalTextHeight = lines.length * fontSize * lineHeight;
-    let startY = (size - totalTextHeight) / 2 + (fontSize * lineHeight) / 2;
-
-    // Desenhar cada linha
     lines.forEach((line) => {
-      ctx.fillText(line, size / 2, startY);
-      startY += fontSize * lineHeight;
+      ctx.fillText(line, width / 2, startY);
+      startY += effectiveFontSize * lineHeight;
     });
 
-    // 4. Detalhe de Marca D'água Opcional ("InspirAI" ou nome do usuário nas bordas)
     ctx.shadowBlur = 0;
     ctx.shadowColor = 'transparent';
     ctx.font = '300 16px sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.fillText('gerado com @inspirai', size / 2, size - 50);
+    const watermarkY = isStory ? height - 140 : height - 50;
+    ctx.fillText('gerado com @inspirai', width / 2, watermarkY);
 
-    // Notificar componente pai que o Canvas está montado e exportar PNG
     try {
       const dataUrl = canvas.toDataURL('image/png');
       onComposeReady?.(dataUrl);
@@ -192,9 +218,16 @@ export const CanvasPost: React.FC<CanvasPostProps> = ({
     }
   };
 
+  const isStory = deliveryFormat === 'story';
+  const dimensionLabel = isStory ? '1080×1920px (Story)' : '1080×1080px (Feed)';
+
   return (
-    <div className="flex flex-col items-center justify-center space-y-2">
-      <div className="relative overflow-hidden rounded-lg border shadow-xl bg-neutral-900 aspect-square w-full max-w-[400px]">
+    <div className="flex flex-col items-center justify-center space-y-2 w-full">
+      <div
+        className={`relative overflow-hidden rounded-lg border shadow-xl bg-neutral-900 w-full ${
+          isStory ? 'aspect-[9/16] max-w-[280px]' : 'aspect-square max-w-[400px]'
+        }`}
+      >
         <canvas
           ref={canvasRef}
           className="w-full h-full object-cover block"
@@ -204,7 +237,7 @@ export const CanvasPost: React.FC<CanvasPostProps> = ({
           <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
             <div className="flex flex-col items-center space-y-2">
               <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-sm text-neutral-400">Montando post...</span>
+              <span className="text-sm text-neutral-400">Montando arte...</span>
             </div>
           </div>
         )}
@@ -214,8 +247,8 @@ export const CanvasPost: React.FC<CanvasPostProps> = ({
           </div>
         )}
       </div>
-      <p className="text-[10px] text-neutral-500 italic">
-        * Post de Feed (1080x1080px) em alta resolução pronto para baixar.
+      <p className="text-[10px] text-neutral-500 italic text-center">
+        * Arte em alta resolução ({dimensionLabel}) pronta para baixar.
       </p>
     </div>
   );

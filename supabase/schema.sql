@@ -25,8 +25,12 @@ create table if not exists public.posts (
     post_date date unique not null,
     quote text not null,
     caption text not null,
-    image_path text, -- Caminho do arquivo no Supabase Storage
-    image_url text,  -- URL pública temporária ou permanente
+    image_path text, -- Caminho do fundo IA no Supabase Storage
+    image_url text,  -- URL pública do fundo IA
+    custom_image_path text,
+    custom_image_url text,
+    delivery_format text not null default 'feed' check (delivery_format in ('feed', 'story')),
+    active_background_source text not null default 'ai' check (active_background_source in ('ai', 'custom')),
     status text not null default 'ready' check (status in ('draft', 'ready', 'published')),
     created_at timestamp with time zone default timezone('utc'::text, now()) not null,
     updated_at timestamp with time zone default timezone('utc'::text, now()) not null

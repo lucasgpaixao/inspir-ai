@@ -18,6 +18,10 @@ export interface GeneratePostResult {
   image_url: string;
   image_path: string;
   status: 'ready' | 'draft';
+  delivery_format: 'feed' | 'story';
+  active_background_source: 'ai' | 'custom';
+  custom_image_url?: string | null;
+  custom_image_path?: string | null;
 }
 
 /**
@@ -110,7 +114,7 @@ Ao criar o prompt para o DALL-E, combine estas diretrizes:
 
   // 6. Fazer upload para o Supabase Storage
   console.log('[Gerador] Fazendo upload para o Supabase Storage...');
-  const filePath = `posts/${dateStr}/background.png`;
+  const filePath = `posts/${dateStr}/background-ai.png`;
 
   const { error: uploadError } = await supabaseAdmin.storage
     .from('instagram-posts')
@@ -133,7 +137,14 @@ Ao criar o prompt para o DALL-E, combine estas diretrizes:
 
   const finalPublicUrl = uploadError ? dalleImageUrl : urlData.publicUrl;
 
-  // 7. Salvar ou Atualizar no Banco de Dados
+  const { data: existing } = await supabaseAdmin
+    .from('posts')
+    .select(
+      'custom_image_path, custom_image_url, active_background_source, delivery_format'
+    )
+    .eq('post_date', dateStr)
+    .maybeSingle();
+
   console.log('[Gerador] Salvando postagem no banco de dados...');
   const postData = {
     post_date: dateStr,
@@ -141,8 +152,12 @@ Ao criar o prompt para o DALL-E, combine estas diretrizes:
     caption: generatedContent.caption,
     image_path: uploadError ? null : filePath,
     image_url: finalPublicUrl,
+    custom_image_path: existing?.custom_image_path ?? null,
+    custom_image_url: existing?.custom_image_url ?? null,
+    active_background_source: existing?.active_background_source ?? 'ai',
+    delivery_format: existing?.delivery_format ?? 'feed',
     status: 'ready',
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
   };
 
   const { error: upsertError } = await supabaseAdmin
@@ -161,6 +176,10 @@ Ao criar o prompt para o DALL-E, combine estas diretrizes:
     caption: generatedContent.caption,
     image_url: finalPublicUrl,
     image_path: uploadError ? '' : filePath,
-    status: 'ready'
+    status: 'ready',
+    delivery_format: existing?.delivery_format ?? 'feed',
+    active_background_source: existing?.active_background_source ?? 'ai',
+    custom_image_url: existing?.custom_image_url ?? null,
+    custom_image_path: existing?.custom_image_path ?? null,
   };
 }
