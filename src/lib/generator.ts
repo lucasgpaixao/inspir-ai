@@ -70,8 +70,8 @@ Ao criar o prompt para o DALL-E, combine estas diretrizes:
   const finalDallePrompt = `${preset.dallePrompt} Mood/Concept: ${generatedContent.imageDallePrompt}. Clean background, highly aesthetic, high-end photography, ultra realistic texture, no text, no words, no letters.`;
   console.log(`[Gerador] Prompt DALL-E gerado: ${finalDallePrompt}`);
 
-  // 4. Chamar API do DALL-E 3 para gerar a imagem
-  console.log('[Gerador] Solicitando imagem ao DALL-E 3...');
+  // 4. Chamar API de imagens (gpt-image-1) para gerar a imagem
+  console.log('[Gerador] Solicitando imagem ao gpt-image-1...');
   const dalleRes = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
     headers: {
@@ -79,36 +79,34 @@ Ao criar o prompt para o DALL-E, combine estas diretrizes:
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'dall-e-3',
+      model: 'gpt-image-1',
       prompt: finalDallePrompt,
       n: 1,
       size: '1024x1024',
-      quality: 'standard',
+      quality: 'high',
     }),
   });
 
   if (!dalleRes.ok) {
     const errorBody = await dalleRes.text();
-    console.error(`[Gerador] Erro na API do DALL-E:`, errorBody);
-    throw new Error(`Erro ao gerar imagem no DALL-E: ${dalleRes.statusText} - ${errorBody}`);
+    console.error(`[Gerador] Erro na API de imagens:`, errorBody);
+    throw new Error(`Erro ao gerar imagem: ${dalleRes.statusText} - ${errorBody}`);
   }
 
   const dalleData = await dalleRes.json();
-  const dalleImageUrl = dalleData.data[0]?.url;
+  // gpt-image-1 sempre retorna a imagem em base64 (b64_json)
+  const b64Image = dalleData.data?.[0]?.b64_json;
 
-  if (!dalleImageUrl) {
-    throw new Error('A API do DALL-E não retornou nenhuma URL de imagem.');
+  if (!b64Image) {
+    throw new Error('A API de imagens não retornou nenhuma imagem.');
   }
 
-  console.log('[Gerador] Imagem gerada com sucesso. Fazendo download...');
+  console.log('[Gerador] Imagem gerada com sucesso. Processando...');
 
-  // 5. Baixar imagem temporária da OpenAI
-  const imgRes = await fetch(dalleImageUrl);
-  if (!imgRes.ok) {
-    throw new Error(`Falha ao baixar imagem gerada pela OpenAI: ${imgRes.statusText}`);
-  }
-  const arrayBuffer = await imgRes.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+  // 5. Converter base64 para buffer
+  const buffer = Buffer.from(b64Image, 'base64');
+  // URL de fallback (data URI) caso o upload ao Storage falhe
+  const dalleImageUrl = `data:image/png;base64,${b64Image}`;
 
   // 6. Fazer upload para o Supabase Storage
   console.log('[Gerador] Fazendo upload para o Supabase Storage...');

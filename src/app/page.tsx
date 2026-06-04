@@ -250,7 +250,7 @@ export default function Home() {
           status: editingStatus,
           image_url: updatedPost.image_url,
           updated_at: new Date().toISOString(),
-        });
+        }, { onConflict: 'post_date' });
 
         if (error) throw error;
         toast.success('Alterações salvas no banco de dados!');
